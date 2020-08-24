@@ -19,7 +19,8 @@ This report made use of course forum discussions, especially course mentor Len G
 The data in the training set consists of accelerometer measurements taken over the course of a weight-lifting movement. These measurements are time series split up into "windows" of several seconds. In addition to the observations taken at each instant of time, the dataset includes aggregated statistics at the start of each new window (e.g., max/min and average values). 
 
 The testing dataset, however, does not include any rows containing the aggregated window data (the columns are blank or NA), which suggests that we are meant to predict the movements based on the instantaneous measurements alone. If that is the case, we should omit the aggregated data columns from our training data, as they are blank or NA for most rows.    
-```{r eval=FALSE}
+
+```r
 training = read.csv("pml-training.csv")
 testing = read.csv("pml-testing.csv")
 
@@ -35,7 +36,8 @@ training1 <- training1[,-grep("avg_",colnames(training1))]
 ```
 
 Because we are attempting to predict based on instantaneous measurements, we can omit columns pertaining to time. We also omit row indexes from the predictors. Finally, we omit the subject names from the dataset so that this model will be applicable to users beyond the original six test subjects. These omissions are achieved by removing the first seven columns from the original training set.
-```{r eval=FALSE}
+
+```r
 training1 <- training1[,-c(1:7)]
 ```
 
@@ -43,7 +45,8 @@ The final training dataset contains 52 predictors consisting of instantaneous ac
 
 We conduct the same transformation to the testing dataset.
 
-```{r eval=FALSE}
+
+```r
 testing1 <- testing
 testing1 <- testing1[,-grep("kurtosis",colnames(testing1))]
 testing1 <- testing1[,-grep("skewness",colnames(testing1))]
@@ -64,7 +67,8 @@ Three machine learning models were evaluated for this classification problem. We
 
 The first machine learning model attempted was a linear discriminant analysis (LDA) model. We train all models with parallel processing enabled to reduce computing time. The following code initializes the parallel processing cluster.
 
-```{r eval=FALSE}
+
+```r
 library(parallel)
 library(doParallel)
 
@@ -73,12 +77,14 @@ registerDoParallel(cluster)
 ```
 
 Next we use the *traincontrol()* function to define settings for the *train()* function that will be called in the next step. We will enable parallel processing for train() in this step. We also define the resampling method here, selecting *method=cv* and *number=5* to use 5-fold cross-validation.     
-```{r eval=FALSE}
+
+```r
 fitControl <- trainControl(method = "cv", number = 5, allowParallel = TRUE)
 ```
 
 With *traincontrol()* set, we can now train an LDA model with classe as the response and all other columns in *training1* as predictors. The final two lines of code deactivate the parallel processing cluster created earlier.
-```{r eval=FALSE}
+
+```r
 set.seed(12345)
 fit1 <- train(classe ~ ., method="lda",data=training1,trControl = fitControl)
 
@@ -90,7 +96,8 @@ The resulting LDA model has a training accuracy of **0.7023**. For this assignme
 ### Model 2: Boosted Trees
 We next try tree-based classification methods to predict the weight-lifting movements. The first tree-based method we will attempt is a boosted tree model using the *gbm* method in caret. For this model, we will use the same *traincontrol()* settings as the LDA model (5-fold cross-validation, parallel processing enabled). When calling the *train()* function, we again predict classe as a function of all other columns in the *training1* dataset and set the method to *gbm*.   
 
-```{r eval=FALSE}
+
+```r
 cluster <- makeCluster(detectCores() - 1)
 registerDoParallel(cluster)
 
@@ -100,13 +107,13 @@ fit2 <- train(classe ~ ., method="gbm",data=training1,trControl = fitControl,ver
 
 stopCluster(cluster)
 registerDoSEQ()
-
 ```
 The resulting model has a training accuracy of **0.9619**. While this is much better than the LDA model's accuracy, we will continue to search for a more accurate model.
 
 ### Model 3: Random Forest
 The third classification method evaluated is the random forest model. The random forest model will use slightly different *traincontrol()* settings. Rather than using the cross-validation method for resampling, we specify the resampling method as out-of-bag (oob), which is included in caret specifically for random forest models. The *train()* command is otherwise called in a similar fashion to the previous models. 
-```{r eval=FALSE}
+
+```r
 cluster <- makeCluster(detectCores() - 1)
 registerDoParallel(cluster)
 
@@ -116,7 +123,6 @@ fit3 <- train(classe ~ ., method="rf",data=training1,trControl = oobControl2)
 
 stopCluster(cluster)
 registerDoSEQ()
-
 ```
 
 The resulting random forest model has a training accuracy of **0.9959**. Because this is the most accurate of the three models attempted in this project, we will select this as the final model to predict the weight-lifting movements in the test set.
@@ -124,7 +130,8 @@ The resulting random forest model has a training accuracy of **0.9959**. Because
 ### Out of Sample / Out of Bag Error
 For random forest models, the out of bag (OOB) error estimate is the equivalent to out of sample error calculated by cross-validated methods. The OOB error estimate is generated when using *train()* on a random forest model. To retrieve this estimate, use the following code:
 
-```{r eval=FALSE}
+
+```r
 fit3$finalModel
 ```
 
@@ -133,7 +140,8 @@ The above code indicates that the OOB error estimate is **0.42%**.
 
 ## Prediction on Test Set
 To apply the random forest model to the testing dataset, we use the *predict()* function as follows.
-```{r eval=FALSE}
+
+```r
 predict(fit3,newdata=testing1)
 ```
 
